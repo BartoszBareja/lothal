@@ -261,6 +261,173 @@ def chart_co2_vs_price(df: pd.DataFrame, out_dir: Path) -> Dict[str, object]:
     }
 
 
+def chart_feature_correlation_matrix(df: pd.DataFrame, out_dir: Path) -> Dict[str, object]:
+    numeric_cols = ["price_pln", "stops", "total_distance_km", "total_duration_min", "carbon_grams"]
+    available = [c for c in numeric_cols if c in df.columns]
+    subset = df[available].dropna(how="all")
+    if len(subset) < 3 or len(available) < 2:
+        return {"status": "skipped", "reason": "Not enough numeric data for correlation matrix."}
+
+    corr = subset.corr()
+
+    fig, ax = plt.subplots(figsize=(10, 8))
+    im = ax.imshow(corr.values, cmap="RdBu_r", vmin=-1, vmax=1)
+    plt.colorbar(im, ax=ax, label="Pearson correlation")
+    ax.set_xticks(range(len(corr.columns)))
+    ax.set_yticks(range(len(corr.index)))
+    ax.set_xticklabels(corr.columns, rotation=45, ha="right")
+    ax.set_yticklabels(corr.index)
+    ax.set_title("Feature correlation matrix")
+
+    for i in range(len(corr.index)):
+        for j in range(len(corr.columns)):
+            val = corr.values[i, j]
+            if not np.isnan(val):
+                color = "white" if abs(val) > 0.6 else "black"
+                ax.text(j, i, f"{val:.2f}", ha="center", va="center", fontsize=8, color=color)
+
+    plot_path = _save_and_close(out_dir / "chart_09_feature_correlation_matrix.png")
+    return {
+        "status": "ok",
+        "plot": str(plot_path),
+        "rows": int(len(subset)),
+        "metrics": {c: corr["price_pln"].get(c, float("nan")) for c in available if c != "price_pln"},
+    }
+
+
+_INTERNATIONAL_AIRPORT_NAMES = {
+    "AMM": "Amman (AMM)",
+    "AMS": "Amsterdam (AMS)",
+    "ARN": "Stockholm Arlanda (ARN)",
+    "ATH": "Athens (ATH)",
+    "BCN": "Barcelona (BCN)",
+    "BLL": "Billund (BLL)",
+    "CAI": "Cairo (CAI)",
+    "CPH": "Copenhagen (CPH)",
+    "EIN": "Eindhoven (EIN)",
+    "FAO": "Faro (FAO)",
+    "FRA": "Frankfurt (FRA)",
+    "GOT": "Gothenburg (GOT)",
+    "HER": "Heraklion (HER)",
+    "HRG": "Hurghada (HRG)",
+    "JFK": "New York JFK (JFK)",
+    "LAX": "Los Angeles (LAX)",
+    "LGW": "London Gatwick (LGW)",
+    "LHR": "London Heathrow (LHR)",
+    "LIS": "Lisbon (LIS)",
+    "MAD": "Madrid (MAD)",
+    "MAN": "Manchester (MAN)",
+    "MMX": "Malmö (MMX)",
+    "OPO": "Porto (OPO)",
+    "ORD": "Chicago O'Hare (ORD)",
+    "PMI": "Palma de Mallorca (PMI)",
+    "RHO": "Rhodes (RHO)",
+    "RTM": "Rotterdam (RTM)",
+    "SSH": "Sharm el-Sheikh (SSH)",
+}
+
+# tab20 indices 14-15 are a gray pair — skip them so they don't clash with the "Other" slice
+_PIE_COLORS = [c for i, c in enumerate(plt.colormaps["tab20"].colors) if i not in {14, 15}]
+
+_POLISH_AIRPORT_NAMES = {
+    "BZG": "Bydgoszcz (BZG)",
+    "GDN": "Gdańsk (GDN)",
+    "IEG": "Zielona Góra (IEG)",
+    "KRK": "Kraków (KRK)",
+    "KTW": "Katowice (KTW)",
+    "LCJ": "Łódź (LCJ)",
+    "OSP": "Koszalin (OSP)",
+    "POZ": "Poznań (POZ)",
+    "RZE": "Rzeszów (RZE)",
+    "SZZ": "Szczecin (SZZ)",
+    "WAW": "Warszawa Chopin (WAW)",
+    "WMI": "Warszawa Modlin (WMI)",
+    "WRO": "Wrocław (WRO)",
+}
+
+
+def chart_polish_airport_share(df: pd.DataFrame, out_dir: Path, top_n: int = 8) -> Dict[str, object]:
+    from filter_flights import VALID_POLISH_AIRPORTS
+
+    subset = df[df["departure_airport"].isin(VALID_POLISH_AIRPORTS)].dropna(subset=["departure_airport"])
+    if subset.empty:
+        return {"status": "skipped", "reason": "No flights from Polish airports."}
+
+    counts = subset["departure_airport"].value_counts()
+    top = counts.head(top_n)
+    other_count = counts.iloc[top_n:].sum()
+    if other_count > 0:
+        top = pd.concat([top, pd.Series({"Other": other_count})])
+
+    labels = [_POLISH_AIRPORT_NAMES.get(code, code) for code in top.index]
+    n_named = len(top) - (1 if other_count > 0 else 0)
+    colors = list(_PIE_COLORS[:n_named])
+    if other_count > 0:
+        colors.append("#cccccc")
+
+    fig, ax = plt.subplots(figsize=(10, 10))
+    wedges, texts, autotexts = ax.pie(
+        top.values,
+        labels=labels,
+        autopct="%1.1f%%",
+        startangle=140,
+        pctdistance=0.78,
+        colors=colors,
+    )
+    for at in autotexts:
+        at.set_fontsize(9)
+    ax.set_title("Share of flights by Polish departure airport", pad=20)
+
+    plot_path = _save_and_close(out_dir / "chart_10_polish_airport_share.png")
+    return {
+        "status": "ok",
+        "plot": str(plot_path),
+        "rows": int(subset.shape[0]),
+        "metrics": counts.to_dict(),
+    }
+
+
+def chart_destination_share(df: pd.DataFrame, out_dir: Path, top_n: int = 8) -> Dict[str, object]:
+    subset = df.dropna(subset=["destination_airport"])
+    if subset.empty:
+        return {"status": "skipped", "reason": "No destination data."}
+
+    counts = subset["destination_airport"].value_counts()
+    top = counts.head(top_n)
+    other_count = counts.iloc[top_n:].sum()
+    if other_count > 0:
+        top = pd.concat([top, pd.Series({"Other": other_count})])
+
+    labels = [_INTERNATIONAL_AIRPORT_NAMES.get(code, code) for code in top.index]
+
+    n_named = len(top) - (1 if other_count > 0 else 0)
+    colors = list(_PIE_COLORS[:n_named])
+    if other_count > 0:
+        colors.append("#cccccc")
+
+    fig, ax = plt.subplots(figsize=(11, 11))
+    wedges, texts, autotexts = ax.pie(
+        top.values,
+        labels=labels,
+        autopct="%1.1f%%",
+        startangle=140,
+        pctdistance=0.78,
+        colors=colors,
+    )
+    for at in autotexts:
+        at.set_fontsize(9)
+    ax.set_title(f"Most popular destinations (top {top_n})", pad=20)
+
+    plot_path = _save_and_close(out_dir / "chart_11_destination_share.png")
+    return {
+        "status": "ok",
+        "plot": str(plot_path),
+        "rows": int(subset.shape[0]),
+        "metrics": counts.to_dict(),
+    }
+
+
+
 def chart_co2_efficiency_by_destination(df: pd.DataFrame, out_dir: Path, top_n: int = 12) -> Dict[str, object]:
     subset = df.dropna(subset=["destination_airport", "carbon_grams", "total_distance_km"]).copy()
     subset = subset[subset["total_distance_km"] > 0]

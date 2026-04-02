@@ -7,9 +7,12 @@ from flight_analytics.charts import (
     chart_co2_vs_price,
     chart_daily_trend,
     chart_destination_boxplot,
+    chart_destination_share,
+    chart_polish_airport_share,
     chart_price_heatmap,
     chart_price_histogram,
     chart_price_vs_distance,
+    chart_feature_correlation_matrix,
 )
 from flight_analytics.data import clean_results, flatten_flights, load_data
 
@@ -36,7 +39,10 @@ def print_menu() -> None:
     print("6. Price vs distance with regression")
     print("7. CO2 vs price")
     print("8. CO2 efficiency by destination")
-    print("9. Generate all charts")
+    print("9. Feature correlation matrix")
+    print("10. Polish airport share (pie chart)")
+    print("11. Most popular destinations (pie chart)")
+    print("12. Generate all charts")
     print("0. Exit")
 
 
@@ -66,14 +72,17 @@ def run() -> None:
     chart_results: Dict[str, Dict[str, object]] = {}
 
     chart_funcs: Dict[str, tuple[str, Callable[..., Dict[str, object]]]] = {
-        "1": ("cheapest_routes", chart_cheapest_routes),
-        "2": ("daily_trend", chart_daily_trend),
-        "3": ("price_histogram", chart_price_histogram),
-        "4": ("destination_boxplot", chart_destination_boxplot),
-        "5": ("price_heatmap", chart_price_heatmap),
-        "6": ("price_vs_distance", chart_price_vs_distance),
-        "7": ("co2_vs_price", chart_co2_vs_price),
-        "8": ("co2_efficiency_destinations", chart_co2_efficiency_by_destination),
+        "1":  ("cheapest_routes", chart_cheapest_routes),
+        "2":  ("daily_trend", chart_daily_trend),
+        "3":  ("price_histogram", chart_price_histogram),
+        "4":  ("destination_boxplot", chart_destination_boxplot),
+        "5":  ("price_heatmap", chart_price_heatmap),
+        "6":  ("price_vs_distance", chart_price_vs_distance),
+        "7":  ("co2_vs_price", chart_co2_vs_price),
+        "8":  ("co2_efficiency_destinations", chart_co2_efficiency_by_destination),
+        "9":  ("feature_correlation_matrix", chart_feature_correlation_matrix),
+        "10": ("polish_airport_share", chart_polish_airport_share),
+        "11": ("destination_share", chart_destination_share),
     }
 
     while True:
@@ -90,7 +99,7 @@ def run() -> None:
             print(f"[{chart_name}] {result}")
             continue
 
-        if choice == "9":
+        if choice == "12":
             for chart_name, fn in chart_funcs.values():
                 result = fn(df, OUTPUT_DIR)
                 chart_results[chart_name] = result
