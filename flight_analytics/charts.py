@@ -15,6 +15,12 @@ def _save_and_close(path: Path) -> Path:
     return path
 
 
+def _save_table(df_table: pd.DataFrame, path: Path) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    df_table.to_csv(path, index=False, encoding="utf-8")
+    return path
+
+
 def chart_cheapest_routes(df: pd.DataFrame, out_dir: Path, top_n: int = 15) -> Dict[str, object]:
     subset = df.dropna(subset=["price_pln", "departure_airport", "destination_airport"]).copy()
     if subset.empty:
@@ -38,7 +44,8 @@ def chart_cheapest_routes(df: pd.DataFrame, out_dir: Path, top_n: int = 15) -> D
         plt.text(bar.get_width() + 10, bar.get_y() + bar.get_height() / 2, f"{bar.get_width():.0f}", va="center")
 
     plot_path = _save_and_close(out_dir / "chart_01_cheapest_routes.png")
-    return {"status": "ok", "plot": str(plot_path), "rows": len(cheapest)}
+    table_path = _save_table(cheapest.rename(columns={"price_pln": "min_price_pln"}), out_dir / "table_01_cheapest_routes.csv")
+    return {"status": "ok", "plot": str(plot_path), "table": str(table_path), "rows": len(cheapest)}
 
 
 def chart_daily_trend(df: pd.DataFrame, out_dir: Path, top_destinations: int = 10) -> Dict[str, object]:
@@ -70,7 +77,8 @@ def chart_daily_trend(df: pd.DataFrame, out_dir: Path, top_destinations: int = 1
     plt.legend(title="Destination", ncol=2, fontsize=8)
 
     plot_path = _save_and_close(out_dir / "chart_02_daily_trend.png")
-    return {"status": "ok", "plot": str(plot_path), "rows": len(grouped)}
+    table_path = _save_table(grouped.rename(columns={"price_pln": "min_price_pln"}), out_dir / "table_02_daily_trend.csv")
+    return {"status": "ok", "plot": str(plot_path), "table": str(table_path), "rows": len(grouped)}
 
 
 def chart_price_histogram(df: pd.DataFrame, out_dir: Path) -> Dict[str, object]:
@@ -94,18 +102,21 @@ def chart_price_histogram(df: pd.DataFrame, out_dir: Path) -> Dict[str, object]:
     plt.grid(alpha=0.2)
 
     plot_path = _save_and_close(out_dir / "chart_03_price_histogram.png")
+    metrics = {
+        "count": int(prices.count()),
+        "min": float(prices.min()),
+        "q25": q25,
+        "median": median,
+        "q75": q75,
+        "max": float(prices.max()),
+    }
+    table_path = _save_table(pd.DataFrame([metrics]), out_dir / "table_03_price_histogram.csv")
     return {
         "status": "ok",
         "plot": str(plot_path),
+        "table": str(table_path),
         "rows": int(prices.count()),
-        "metrics": {
-            "count": int(prices.count()),
-            "min": float(prices.min()),
-            "q25": q25,
-            "median": median,
-            "q75": q75,
-            "max": float(prices.max()),
-        },
+        "metrics": metrics,
     }
 
 
@@ -133,9 +144,11 @@ def chart_destination_boxplot(df: pd.DataFrame, out_dir: Path, top_destinations:
         .agg(["count", "min", "median", "mean", "max"])
         .reset_index()
     )
+    table_path = _save_table(summary, out_dir / "table_04_destination_boxplot.csv")
     return {
         "status": "ok",
         "plot": str(plot_path),
+        "table": str(table_path),
         "rows": len(subset),
         "metrics": {
             "destinations": int(len(labels)),
@@ -169,7 +182,8 @@ def chart_price_heatmap(df: pd.DataFrame, out_dir: Path) -> Dict[str, object]:
     plt.title("Heatmap: min price by date and destination")
 
     plot_path = _save_and_close(out_dir / "chart_05_price_heatmap.png")
-    return {"status": "ok", "plot": str(plot_path), "rows": int(pivot.size)}
+    table_path = _save_table(pivot.reset_index(), out_dir / "table_05_price_heatmap.csv")
+    return {"status": "ok", "plot": str(plot_path), "table": str(table_path), "rows": int(pivot.size)}
 
 
 def chart_price_vs_distance(df: pd.DataFrame, out_dir: Path) -> Dict[str, object]:
@@ -198,16 +212,22 @@ def chart_price_vs_distance(df: pd.DataFrame, out_dir: Path) -> Dict[str, object
     plt.legend()
 
     plot_path = _save_and_close(out_dir / "chart_06_price_vs_distance.png")
+    metrics = {
+        "samples": int(len(subset)),
+        "slope": float(slope),
+        "intercept": float(intercept),
+        "r2": float(r2),
+    }
+    table_path = _save_table(
+        subset[["total_distance_km", "price_pln"]].sort_values("total_distance_km").reset_index(drop=True),
+        out_dir / "table_06_price_vs_distance.csv",
+    )
     return {
         "status": "ok",
         "plot": str(plot_path),
+        "table": str(table_path),
         "rows": int(len(subset)),
-        "metrics": {
-            "samples": int(len(subset)),
-            "slope": float(slope),
-            "intercept": float(intercept),
-            "r2": float(r2),
-        },
+        "metrics": metrics,
     }
 
 
@@ -245,9 +265,12 @@ def chart_co2_vs_price(df: pd.DataFrame, out_dir: Path) -> Dict[str, object]:
     plt.legend()
 
     plot_path = _save_and_close(out_dir / "chart_07_co2_vs_price.png")
+    table_cols = [c for c in ["carbon_grams", "price_pln", "co2_per_100km"] if c in subset.columns]
+    table_path = _save_table(subset[table_cols].reset_index(drop=True), out_dir / "table_07_co2_vs_price.csv")
     return {
         "status": "ok",
         "plot": str(plot_path),
+        "table": str(table_path),
         "rows": len(subset),
         "metrics": {
             "samples": int(len(subset)),
@@ -287,9 +310,11 @@ def chart_feature_correlation_matrix(df: pd.DataFrame, out_dir: Path) -> Dict[st
                 ax.text(j, i, f"{val:.2f}", ha="center", va="center", fontsize=8, color=color)
 
     plot_path = _save_and_close(out_dir / "chart_09_feature_correlation_matrix.png")
+    table_path = _save_table(corr.reset_index(), out_dir / "table_09_feature_correlation_matrix.csv")
     return {
         "status": "ok",
         "plot": str(plot_path),
+        "table": str(table_path),
         "rows": int(len(subset)),
         "metrics": {c: corr["price_pln"].get(c, float("nan")) for c in available if c != "price_pln"},
     }
@@ -379,9 +404,14 @@ def chart_polish_airport_share(df: pd.DataFrame, out_dir: Path, top_n: int = 8) 
     ax.set_title("Share of flights by Polish departure airport", pad=20)
 
     plot_path = _save_and_close(out_dir / "chart_10_polish_airport_share.png")
+    table_path = _save_table(
+        counts.reset_index().rename(columns={"index": "airport", "departure_airport": "flight_count"}),
+        out_dir / "table_10_polish_airport_share.csv",
+    )
     return {
         "status": "ok",
         "plot": str(plot_path),
+        "table": str(table_path),
         "rows": int(subset.shape[0]),
         "metrics": counts.to_dict(),
     }
@@ -419,9 +449,14 @@ def chart_destination_share(df: pd.DataFrame, out_dir: Path, top_n: int = 8) -> 
     ax.set_title(f"Most popular destinations (top {top_n})", pad=20)
 
     plot_path = _save_and_close(out_dir / "chart_11_destination_share.png")
+    table_path = _save_table(
+        counts.reset_index().rename(columns={"index": "airport", "destination_airport": "flight_count"}),
+        out_dir / "table_11_destination_share.csv",
+    )
     return {
         "status": "ok",
         "plot": str(plot_path),
+        "table": str(table_path),
         "rows": int(subset.shape[0]),
         "metrics": counts.to_dict(),
     }
@@ -540,9 +575,11 @@ def chart_co2_efficiency_by_destination(df: pd.DataFrame, out_dir: Path, top_n: 
         plt.text(bar.get_width() + 0.5, bar.get_y() + bar.get_height() / 2, f"{bar.get_width():.1f}", va="center")
 
     plot_path = _save_and_close(out_dir / "chart_08_co2_efficiency_destinations.png")
+    table_path = _save_table(grouped, out_dir / "table_08_co2_efficiency_destinations.csv")
     return {
         "status": "ok",
         "plot": str(plot_path),
+        "table": str(table_path),
         "rows": len(grouped),
         "metrics": {
             "destinations": int(len(grouped)),
