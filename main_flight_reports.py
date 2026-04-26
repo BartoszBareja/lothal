@@ -8,7 +8,9 @@ from flight_analytics.charts import (
     chart_daily_trend,
     chart_destination_boxplot,
     chart_destination_share,
+    chart_destination_share_passengers,
     chart_polish_airport_share,
+    chart_polish_airport_share_passengers,
     chart_price_heatmap,
     chart_price_histogram,
     chart_price_vs_distance,
@@ -43,6 +45,8 @@ def print_menu() -> None:
     print("9. Feature correlation matrix")
     print("10. Polish airport share (pie chart)")
     print("11. Most popular destinations (pie chart)")
+    print("13. Polish airport share by passengers 2024 (pie chart)")
+    print("14. International destinations by passengers 2024 (pie chart)")
     print("12. Generate all charts")
     print("0. Exit")
 
@@ -96,6 +100,8 @@ def run() -> None:
         "9":  ("feature_correlation_matrix", chart_feature_correlation_matrix),
         "10": ("polish_airport_share", chart_polish_airport_share),
         "11": ("destination_share", chart_destination_share),
+        "13": ("polish_airport_share_passengers", chart_polish_airport_share_passengers),
+        "14": ("destination_share_passengers", chart_destination_share_passengers),
     }
 
     while True:

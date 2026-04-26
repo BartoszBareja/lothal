@@ -461,6 +461,87 @@ def chart_destination_share(df: pd.DataFrame, out_dir: Path, top_n: int = 8) -> 
     }
 
 
+def chart_polish_airport_share_passengers(df: pd.DataFrame, out_dir: Path, top_n: int = 8) -> Dict[str, object]:
+    from filter_flights import VALID_POLISH_AIRPORTS
+    from flight_analytics.data import airport_passengers_2024
+
+    polish_codes = [c for c in VALID_POLISH_AIRPORTS if c in airport_passengers_2024]
+    if not polish_codes:
+        return {"status": "skipped", "reason": "No passenger data for Polish airports."}
+
+    counts = pd.Series({code: airport_passengers_2024[code] for code in polish_codes}).sort_values(ascending=False)
+    top = counts.head(top_n)
+    other_count = counts.iloc[top_n:].sum()
+    if other_count > 0:
+        top = pd.concat([top, pd.Series({"Other": other_count})])
+
+    labels = [_POLISH_AIRPORT_NAMES.get(code, code) for code in top.index]
+    n_named = len(top) - (1 if other_count > 0 else 0)
+    colors = list(_PIE_COLORS[:n_named])
+    if other_count > 0:
+        colors.append("#cccccc")
+
+    fig, ax = plt.subplots(figsize=(10, 10))
+    wedges, texts, autotexts = ax.pie(
+        top.values,
+        labels=labels,
+        autopct="%1.1f%%",
+        startangle=140,
+        pctdistance=0.78,
+        colors=colors,
+    )
+    for at in autotexts:
+        at.set_fontsize(9)
+    ax.set_title("Share of passengers by Polish airport (2024)", pad=20)
+
+    plot_path = _save_and_close(out_dir / "chart_13_polish_airport_share_passengers.png")
+    return {
+        "status": "ok",
+        "plot": str(plot_path),
+        "metrics": counts.to_dict(),
+    }
+
+
+def chart_destination_share_passengers(df: pd.DataFrame, out_dir: Path, top_n: int = 8) -> Dict[str, object]:
+    from filter_flights import VALID_INTERNATIONAL_AIRPORTS
+    from flight_analytics.data import airport_passengers_2024
+
+    intl_codes = [c for c in VALID_INTERNATIONAL_AIRPORTS if c in airport_passengers_2024]
+    if not intl_codes:
+        return {"status": "skipped", "reason": "No passenger data for international airports."}
+
+    counts = pd.Series({code: airport_passengers_2024[code] for code in intl_codes}).sort_values(ascending=False)
+    top = counts.head(top_n)
+    other_count = counts.iloc[top_n:].sum()
+    if other_count > 0:
+        top = pd.concat([top, pd.Series({"Other": other_count})])
+
+    labels = [_INTERNATIONAL_AIRPORT_NAMES.get(code, code) for code in top.index]
+    n_named = len(top) - (1 if other_count > 0 else 0)
+    colors = list(_PIE_COLORS[:n_named])
+    if other_count > 0:
+        colors.append("#cccccc")
+
+    fig, ax = plt.subplots(figsize=(11, 11))
+    wedges, texts, autotexts = ax.pie(
+        top.values,
+        labels=labels,
+        autopct="%1.1f%%",
+        startangle=140,
+        pctdistance=0.78,
+        colors=colors,
+    )
+    for at in autotexts:
+        at.set_fontsize(9)
+    ax.set_title(f"Most popular international destinations by passengers (2024, top {top_n})", pad=20)
+
+    plot_path = _save_and_close(out_dir / "chart_14_destination_share_passengers.png")
+    return {
+        "status": "ok",
+        "plot": str(plot_path),
+        "metrics": counts.to_dict(),
+    }
+
 
 def chart_co2_efficiency_by_destination(df: pd.DataFrame, out_dir: Path, top_n: int = 12) -> Dict[str, object]:
     subset = df.dropna(subset=["destination_airport", "carbon_grams", "total_distance_km"]).copy()
