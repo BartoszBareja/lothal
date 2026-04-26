@@ -351,7 +351,6 @@ _INTERNATIONAL_AIRPORT_NAMES = {
     "SSH": "Sharm el-Sheikh (SSH)",
 }
 
-# tab20 indices 14-15 are a gray pair — skip them so they don't clash with the "Other" slice
 _PIE_COLORS = [c for i, c in enumerate(plt.colormaps["tab20"].colors) if i not in {14, 15}]
 
 _POLISH_AIRPORT_NAMES = {

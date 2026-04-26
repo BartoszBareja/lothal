@@ -32,6 +32,24 @@ def clean_results(data: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any]]
     return cleaned, stats
 
 
+def _calc_distance(offer: Dict[str, Any], flights: List[Dict[str, Any]]) -> Any:
+    distance = offer.get("total_distance_km")
+    if distance is not None:
+        return distance
+
+    segment_distances = [segment.get("distance_km") for segment in flights if segment.get("distance_km")]
+    return round(sum(segment_distances), 1) if segment_distances else None
+
+
+def _calc_total_duration(offer: Dict[str, Any], flights: List[Dict[str, Any]]) -> Any:
+    total_duration = offer.get("total_duration")
+    if total_duration is not None:
+        return total_duration
+
+    durations = [segment.get("duration") for segment in flights if segment.get("duration")]
+    return sum(durations) if durations else None
+
+
 def flatten_flights(data: Dict[str, Any]) -> pd.DataFrame:
     rows: List[Dict[str, Any]] = []
 
@@ -55,15 +73,8 @@ def flatten_flights(data: Dict[str, Any]) -> pd.DataFrame:
                 dep_id = dep_airport.get("id")
                 dest_id = arr_airport.get("id")
 
-                distance = offer.get("total_distance_km")
-                if distance is None:
-                    seg_dist = [seg.get("distance_km") for seg in flights if seg.get("distance_km")]
-                    distance = round(sum(seg_dist), 1) if seg_dist else None
-
-                total_duration = offer.get("total_duration")
-                if total_duration is None:
-                    durations = [seg.get("duration") for seg in flights if seg.get("duration")]
-                    total_duration = sum(durations) if durations else None
+                distance = _calc_distance(offer, flights)
+                total_duration = _calc_total_duration(offer, flights)
 
                 carbon = offer.get("carbon_emissions", {}).get("this_flight")
 

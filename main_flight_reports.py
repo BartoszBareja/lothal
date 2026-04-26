@@ -19,6 +19,7 @@ from flight_analytics.data import clean_results, flatten_flights, load_data
 
 OUTPUT_DIR = Path("output")
 DEFAULT_INPUT = Path("flights_20260315.json")
+ChartFn = Callable[..., Dict[str, object]]
 
 
 def ask_yes_no(prompt: str, default: bool = True) -> bool:
@@ -46,6 +47,18 @@ def print_menu() -> None:
     print("0. Exit")
 
 
+def execute_chart(
+    chart_name: str,
+    chart_func: ChartFn,
+    df,
+    output_dir: Path,
+    chart_results: Dict[str, Dict[str, object]],
+) -> None:
+    result = chart_func(df, output_dir)
+    chart_results[chart_name] = result
+    print(f"[{chart_name}] {result}")
+
+
 def run() -> None:
     print("Flight analytics generator")
     path_input = input(f"Input JSON file [{DEFAULT_INPUT}]: ").strip()
@@ -71,7 +84,7 @@ def run() -> None:
     OUTPUT_DIR.mkdir(exist_ok=True)
     chart_results: Dict[str, Dict[str, object]] = {}
 
-    chart_funcs: Dict[str, tuple[str, Callable[..., Dict[str, object]]]] = {
+    chart_funcs: Dict[str, tuple[str, ChartFn]] = {
         "1":  ("cheapest_routes", chart_cheapest_routes),
         "2":  ("daily_trend", chart_daily_trend),
         "3":  ("price_histogram", chart_price_histogram),
@@ -94,16 +107,12 @@ def run() -> None:
 
         if choice in chart_funcs:
             chart_name, fn = chart_funcs[choice]
-            result = fn(df, OUTPUT_DIR)
-            chart_results[chart_name] = result
-            print(f"[{chart_name}] {result}")
+            execute_chart(chart_name, fn, df, OUTPUT_DIR, chart_results)
             continue
 
         if choice == "12":
             for chart_name, fn in chart_funcs.values():
-                result = fn(df, OUTPUT_DIR)
-                chart_results[chart_name] = result
-                print(f"[{chart_name}] {result}")
+                execute_chart(chart_name, fn, df, OUTPUT_DIR, chart_results)
             print("All chart tasks finished.")
             continue
 
